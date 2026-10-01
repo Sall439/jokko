@@ -1,0 +1,598 @@
+### JokkoDentiste — collection HTTP (VS Code REST Client / IntelliJ HTTP Client)
+###
+### Utilisation
+###   1. `python manage.py seed_demo` (données de démo)
+###   2. `python manage.py runserver`
+###   3. Exécuter les requêtes dans l'ordre : les variables `@id` ci-dessous sont
+###      renseignées à la main (les identifiants affichés par le seed) ou par le
+###      client HTTP avec `# @name`.
+###
+### Authentification : cookie JWT httpOnly posé par `POST /api/auth/login`
+### (cookies `access` et `refresh`). Le client HTTP (REST Client) rejoue
+### automatiquement les cookies reçus.
+###
+### CSRF : les requêtes d'écriture (`POST`, `PUT`, `PATCH`, `DELETE`) exigent
+### l'en-tête `X-CSRFToken`. Exécutez `GET /api/auth/csrf`, puis copiez la valeur
+### du cookie `csrftoken` renvoyé dans la variable `@csrf` ci-dessous. Dans
+### `/api/docs/` (Swagger UI) le navigateur s'en charge automatiquement.
+###
+### Comptes de démonstration (mot de passe : JokkoDemo2026!)
+###   admin@jokkodentiste.sn          rôle admin
+###   awa.ndiaye@jokkodentiste.sn     rôle dentiste
+###   moussa.fall@jokkodentiste.sn    rôle dentiste
+###   patient1@jokkodentiste.sn       rôle patient (patient2, patient3 : de même)
+
+@host = http://localhost:8000
+@emailAdmin = admin@jokkodentiste.sn
+@emailDentiste = awa.ndiaye@jokkodentiste.sn
+@emailPatient = patient1@jokkodentiste.sn
+@motDePasse = JokkoDemo2026!
+
+### Valeur du cookie `csrftoken` (après `GET /api/auth/csrf`)
+@csrf = REMPLACER_PAR_LA_VALEUR_DU_COOKIE_CSRFTOKEN
+
+### État du parcours (rempli par les requêtes ci-dessous)
+@soinId =
+@categorieId =
+@praticienId =
+@specialiteId =
+@cabinetId =
+@userId =
+@horaireId =
+@exceptionId =
+@rendezVousId =
+@notificationId =
+
+@dateDemain = 2030-05-24
+@dateJ8 = 2030-06-03
+
+### ###########################################################################
+### 1. Santé & documentation
+### ###########################################################################
+
+### Sonde de santé (publique)
+GET {{host}}/health
+
+### Schéma OpenAPI (public)
+GET {{host}}/api/schema/
+
+### Documentation interactive Swagger (publique)
+GET {{host}}/api/docs/
+
+### ###########################################################################
+### 2. Authentification — app `accounts`
+### ###########################################################################
+
+### Obtenir le cookie CSRF (à appeler avant toute écriture authentifiée)
+GET {{host}}/api/auth/csrf
+
+### Créer un compte patient
+POST {{host}}/api/auth/register
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "email": "nouveau.patient@jokkodentiste.sn",
+  "nom": "Sagna",
+  "prenom": "Cheikh",
+  "telephone": "+221771112233",
+  "password": "MotDePasseSolide123"
+}
+
+### Se connecter en patient
+# @name connexionPatient
+POST {{host}}/api/auth/login
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "email": "{{emailPatient}}",
+  "password": "{{motDePasse}}"
+}
+
+### Se connecter en administrateur (pour les écritures catalogue/horaires)
+# @name connexionAdmin
+POST {{host}}/api/auth/login
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "email": "{{emailAdmin}}",
+  "password": "{{motDePasse}}"
+}
+
+### Rafraîchir le jeton d'accès
+POST {{host}}/api/auth/refresh
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+### Profil de l'utilisateur connecté
+GET {{host}}/api/auth/me
+
+### Lister les utilisateurs (réservé admin)
+GET {{host}}/api/utilisateurs?page=1&page_size=20&role=patient&ordering=-date_joined
+
+### Consulter un utilisateur (réservé admin)
+# L'app `accounts` expose ces trois routes sans barre oblique finale.
+GET {{host}}/api/utilisateurs/00000000-0000-0000-0000-000000000000
+
+### Modifier un utilisateur (réservé admin)
+PATCH {{host}}/api/utilisateurs/{{userId}}
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "nom": "Diallo",
+  "prenom": "Fatou",
+  "telephone": "+221771234567"
+}
+
+### Supprimer un utilisateur (réservé admin) — refusé s'il a des rendez-vous
+DELETE {{host}}/api/utilisateurs/{{userId}}
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+### Se déconnecter (supprime les cookies)
+POST {{host}}/api/auth/logout
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+### ###########################################################################
+### 3. Catalogue — `/api/v1/catalog/`
+### ###########################################################################
+
+### Lister les soins (page, recherche, filtre catégorie, tri par prix)
+GET {{host}}/api/v1/catalog/soins/?page=1&page_size=20&search=detartrage&categorie={{categorieId}}&actif=true&ordering=prix_xof
+
+### Détail d'un soin
+GET {{host}}/api/v1/catalog/soins/{{soinId}}/
+
+### Lister les catégories
+GET {{host}}/api/v1/catalog/categories/?page=1&page_size=20&search=chir&ordering=nom
+
+### Créer une catégorie (admin)
+# @name creationCategorie
+POST {{host}}/api/v1/catalog/categories/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "nom": "Orthodontie",
+  "description": "Alignement des dents",
+  "ordre": 5
+}
+
+### Détail d'une catégorie
+GET {{host}}/api/v1/catalog/categories/{{categorieId}}/
+
+### Modifier une catégorie (admin)
+PATCH {{host}}/api/v1/catalog/categories/{{categorieId}}/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "description": "Alignement et correction des malocclusions"
+}
+
+### Supprimer une catégorie (admin)
+DELETE {{host}}/api/v1/catalog/categories/{{categorieId}}/
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+### Créer un soin (admin)
+# @name creationSoin
+POST {{host}}/api/v1/catalog/soins/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "nom": "Consultation de suivi",
+  "description": "Contrôle après traitement",
+  "duree_minutes": 20,
+  "prix_xof": 10000,
+  "categorie": "{{categorieId}}",
+  "actif": true
+}
+
+### Modifier un soin (admin)
+PATCH {{host}}/api/v1/catalog/soins/{{soinId}}/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "prix_xof": 12000
+}
+
+### Supprimer un soin (admin) — désactive si le soin est référencé
+DELETE {{host}}/api/v1/catalog/soins/{{soinId}}/
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+### Désactiver un soin (admin)
+POST {{host}}/api/v1/catalog/soins/{{soinId}}/desactiver/
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+### Réactiver un soin (admin)
+POST {{host}}/api/v1/catalog/soins/{{soinId}}/activer/
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+### ###########################################################################
+### 4. Praticiens — `/api/v1/practitioners/`
+### ###########################################################################
+
+### Lister les praticiens (actifs, recherche, spécialité)
+GET {{host}}/api/v1/practitioners/?page=1&page_size=20&search=ndiaye&specialite={{specialiteId}}&actif=true&ordering=user__nom
+
+### Détail d'un praticien
+GET {{host}}/api/v1/practitioners/{{praticienId}}/
+
+### Lister les cabinets
+GET {{host}}/api/v1/practitioners/cabinets/?page=1&page_size=20&search=almadies&actif=true&ordering=nom
+
+### Créer un cabinet (admin)
+# @name creationCabinet
+POST {{host}}/api/v1/practitioners/cabinets/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "nom": "JokkoDentiste — Almadies",
+  "adresse": "Rue 10, Almadies",
+  "telephone": "+221338100000",
+  "ville": "Dakar",
+  "latitude": "14.7160",
+  "longitude": "-17.4670"
+}
+
+### Détail d'un cabinet
+GET {{host}}/api/v1/practitioners/cabinets/{{cabinetId}}/
+
+### Modifier un cabinet (admin)
+PATCH {{host}}/api/v1/practitioners/cabinets/{{cabinetId}}/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "telephone": "+221338100001"
+}
+
+### Supprimer un cabinet (admin)
+DELETE {{host}}/api/v1/practitioners/cabinets/{{cabinetId}}/
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+### Lister les spécialités
+GET {{host}}/api/v1/practitioners/specialites/?page=1&page_size=20&search=chir&ordering=nom
+
+### Créer une spécialité (admin)
+# @name creationSpecialite
+POST {{host}}/api/v1/practitioners/specialites/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "nom": "Pédodontie",
+  "description": "Soins dentaires des enfants"
+}
+
+### Détail d'une spécialité
+GET {{host}}/api/v1/practitioners/specialites/{{specialiteId}}/
+
+### Modifier une spécialité (admin)
+PATCH {{host}}/api/v1/practitioners/specialites/{{specialiteId}}/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "description": "Soins dentaires des enfants de moins de 12 ans"
+}
+
+### Supprimer une spécialité (admin)
+DELETE {{host}}/api/v1/practitioners/specialites/{{specialiteId}}/
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+### Créer un praticien rattaché à un utilisateur de rôle `dentiste` (admin)
+# @name creationPraticien
+POST {{host}}/api/v1/practitioners/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "user": "00000000-0000-0000-0000-000000000000",
+  "cabinet": "{{cabinetId}}",
+  "specialites": ["{{specialiteId}}"],
+  "biographie": "Chirurgie ambulatoire et esthétique dentaire.",
+  "annees_experience": 5,
+  "numero_ordre": "SN-ORD-2021-0001",
+  "actif": true
+}
+
+### Modifier un praticien (admin ou le praticien lui-même)
+PATCH {{host}}/api/v1/practitioners/{{praticienId}}/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "annees_experience": 9
+}
+
+### Mon profil de praticien
+GET {{host}}/api/v1/practitioners/moi/
+
+### Soins proposés par un praticien
+GET {{host}}/api/v1/practitioners/{{praticienId}}/soins/
+
+### Lister / proposer un soin (praticien lui-même ou admin)
+GET {{host}}/api/v1/practitioners/{{praticienId}}/soins-proposes/
+
+### Proposer un soin (prix propre au praticien, sinon celui du catalogue)
+POST {{host}}/api/v1/practitioners/{{praticienId}}/soins-proposes/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "soin": "{{soinId}}",
+  "prix_xof": 30000
+}
+
+### Retirer un soin proposé
+DELETE {{host}}/api/v1/practitioners/{{praticienId}}/soins-proposes/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "soin": "{{soinId}}"
+}
+
+### Supprimer un praticien (admin) — refusé s'il a des rendez-vous
+DELETE {{host}}/api/v1/practitioners/{{praticienId}}/
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+### ###########################################################################
+### 5. Disponibilités — `/api/v1/availability/`
+### ###########################################################################
+
+### Créer un horaire hebdomadaire (admin ou praticien)
+# @name creationHoraire
+POST {{host}}/api/v1/availability/horaires/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "praticien": "{{praticienId}}",
+  "jour": 0,
+  "heure_debut": "09:00:00",
+  "heure_fin": "13:00:00",
+  "actif": true
+}
+
+### Lister les horaires (filtres praticien / jour / actif)
+GET {{host}}/api/v1/availability/horaires/?praticien={{praticienId}}&jour=0&actif=true&ordering=jour,heure_debut
+
+### Détail d'un horaire
+GET {{host}}/api/v1/availability/horaires/{{horaireId}}/
+
+### Modifier un horaire
+PATCH {{host}}/api/v1/availability/horaires/{{horaireId}}/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "heure_fin": "17:30:00"
+}
+
+### Supprimer un horaire
+DELETE {{host}}/api/v1/availability/horaires/{{horaireId}}/
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+### Créer une exception (congé / fermeture) (admin ou praticien)
+# @name creationException
+POST {{host}}/api/v1/availability/exceptions/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "praticien": "{{praticienId}}",
+  "date": "{{dateJ8}}",
+  "type": "conge",
+  "motif": "Congé annuel"
+}
+
+### Lister les exceptions (fenêtre de dates)
+GET {{host}}/api/v1/availability/exceptions/?praticien={{praticienId}}&type=conge&date_min={{dateDemain}}&date_max={{dateJ8}}&ordering=date
+
+### Détail d'une exception
+GET {{host}}/api/v1/availability/exceptions/{{exceptionId}}/
+
+### Modifier une exception
+PATCH {{host}}/api/v1/availability/exceptions/{{exceptionId}}/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "motif": "Congé annuel prolongé"
+}
+
+### Supprimer une exception
+DELETE {{host}}/api/v1/availability/exceptions/{{exceptionId}}/
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+### Créneaux réservables (dérivés : horaires − exceptions − rendez-vous pris)
+GET {{host}}/api/v1/availability/creneaux/?praticien={{praticienId}}&soin={{soinId}}&date_debut={{dateDemain}}&date_fin={{dateJ8}}
+
+### ###########################################################################
+### 6. Rendez-vous — `/api/v1/appointments/`
+### ###########################################################################
+
+### Réserver un rendez-vous (patient, pour lui-même)
+# @name reservation
+POST {{host}}/api/v1/appointments/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "praticien": "{{praticienId}}",
+  "soin": "{{soinId}}",
+  "debut": "2030-06-03T09:00:00+00:00",
+  "notes": "Première visite"
+}
+
+### Mes rendez-vous (filtres statut / praticien / soin / dates, tri, recherche)
+GET {{host}}/api/v1/appointments/?page=1&page_size=20&statut=pending&praticien={{praticienId}}&date_min={{dateDemain}}&date_max={{dateJ8}}&ordering=debut&search=detartrage
+
+### Rendez-vous à venir
+GET {{host}}/api/v1/appointments/avenir/
+
+### Détail d'un rendez-vous (patient, praticien concerné ou admin)
+GET {{host}}/api/v1/appointments/{{rendezVousId}}/
+
+### Modifier les notes (patient)
+PATCH {{host}}/api/v1/appointments/{{rendezVousId}}/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "notes": "Douleur à la molaire du bas"
+}
+
+### Confirmer un rendez-vous (praticien ou admin)
+POST {{host}}/api/v1/appointments/{{rendezVousId}}/confirmer/
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+### Marquer le patient absent (praticien ou admin)
+POST {{host}}/api/v1/appointments/{{rendezVousId}}/absent/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "motif": "Patient injoignable"
+}
+
+### Terminer un rendez-vous (praticien ou admin)
+POST {{host}}/api/v1/appointments/{{rendezVousId}}/terminer/
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+### Annuler un rendez-vous (motif obligatoire, fenêtre de 24 h pour un patient)
+POST {{host}}/api/v1/appointments/{{rendezVousId}}/annuler/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "motif": "Empêchement du patient"
+}
+
+### DELETE = annulation (jamais de suppression physique)
+DELETE {{host}}/api/v1/appointments/{{rendezVousId}}/
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+### ###########################################################################
+### 7. Notifications — `/api/v1/notifications/`
+### ###########################################################################
+
+### Lister mes notifications (filtres type / canal / statut / lue)
+GET {{host}}/api/v1/notifications/?page=1&page_size=20&type=reminder&statut=sent&lue=false&ordering=-created_at
+
+### Détail d'une notification
+GET {{host}}/api/v1/notifications/{{notificationId}}/
+
+### Marquer une notification comme lue
+POST {{host}}/api/v1/notifications/{{notificationId}}/marquer-lue/
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+### Marquer toutes mes notifications comme lues
+POST {{host}}/api/v1/notifications/marquer-toutes-lues/
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+### ###########################################################################
+### 8. Cas d'erreur attendus
+### ###########################################################################
+
+### 401 — sans authentification
+GET {{host}}/api/v1/appointments/
+
+### 404 — identifiant inexistant
+GET {{host}}/api/v1/appointments/00000000-0000-0000-0000-000000000000/
+
+### 403 — un patient qui tente une écriture catalogue
+POST {{host}}/api/v1/catalog/soins/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "nom": "Soin interdit",
+  "duree_minutes": 30,
+  "prix_xof": 1000,
+  "categorie": "{{categorieId}}"
+}
+
+### 403 — un praticien qui tente de réserver pour lui
+POST {{host}}/api/v1/appointments/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "praticien": "{{praticienId}}",
+  "soin": "{{soinId}}",
+  "debut": "2030-06-03T10:00:00+00:00"
+}
+
+### 400 — réservation dans le passé
+POST {{host}}/api/v1/appointments/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "praticien": "{{praticienId}}",
+  "soin": "{{soinId}}",
+  "debut": "2000-01-01T09:00:00+00:00"
+}
+
+### 400 — créneau en conflit (double réservation)
+POST {{host}}/api/v1/appointments/
+Content-Type: application/json
+X-CSRFToken: {{csrf}}
+Referer: {{host}}
+
+{
+  "praticien": "{{praticienId}}",
+  "soin": "{{soinId}}",
+  "debut": "2030-06-03T09:00:00+00:00"
+}
