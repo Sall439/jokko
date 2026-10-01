@@ -1,0 +1,106 @@
+[tool.ruff]
+exclude = ["env", "migrations", ".venv"]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = []
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+strict = true
+ignore_missing_imports = true
+exclude = ["env/", "\\.venv/", "\\.mypy_cache/"]
+# django-filter et django-unfold n'embarquent pas de stubs : sous-classer leurs
+# classes de base (Any) est légitime dans ce projet.
+disallow_subclassing_any = false
+
+[tool.django-stubs]
+django_settings_module = "config.settings.test"
+
+# Les tests et les factories utilisent des fixtures et des libs peu typées
+# (factory_boy, django_filters) : on garde le typage strict pour le code
+# applicatif et on n'exige que l'annotation des signatures dans les tests.
+[[tool.mypy.overrides]]
+module = [
+    "conftest",
+    "apps.*.tests.*",
+    "apps.*.management.*",
+]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disable_error_code = [
+    "no-untyped-call",
+    "no-any-return",
+    "arg-type",
+    "attr-defined",
+    "type-arg",
+    "untyped-decorator",
+    "unused-ignore",
+    "misc",
+    # factory_boy produit des types dynamiques (SubFactory, LazyAttribute…) :
+    # comparer/assigner leurs instances dans les tests est légitime.
+    "assignment",
+    "operator",
+    "comparison-overlap",
+    "call-overload",
+    "return-value",
+]
+
+[[tool.mypy.overrides]]
+module = ["factory.*", "faker.*"]
+ignore_missing_imports = true
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+
+# django-filter n'embarque pas de stubs (aucune classe de base typée).
+[[tool.mypy.overrides]]
+module = ["django_filters.*"]
+ignore_missing_imports = true
+disallow_untyped_calls = false
+disallow_subclassing_any = false
+
+# django-unfold n'embarque pas de stubs.
+[[tool.mypy.overrides]]
+module = ["unfold.*"]
+ignore_missing_imports = true
+disallow_untyped_calls = false
+disallow_subclassing_any = false
+disallow_any_explicit = false
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["test_*.py", "*_test.py"]
+addopts = "--strict-markers --reuse-db --cov=apps --cov-report=term-missing:skip-covered"
+# Les tests doivent couvrir au moins 85 % de la logique métier (modèles,
+# services, serializers, selectors, filters, vues). Les migrations, l'admin et
+# les tests eux-mêmes sont exclus : c'est du code répétitif, pas de la logique
+# métier à couvrir.
+markers = [
+    "concurrency: tests de concurrence (transaction=True, commit réel)",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["apps"]
+omit = [
+    "*/migrations/*",
+    "*/admin.py",
+    "*/tests/*",
+    "*/management/commands/*",
+    "manage.py",
+    "config/*",
+]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+]
