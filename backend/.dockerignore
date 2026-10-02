@@ -1,0 +1,73 @@
+# Fichiers envoyés au démon Docker lors du build de l'image backend.
+# Tout ce qui est listé ici n'est PAS copié dans l'image.
+
+# Environnement virtuel local : l'image construit le sien dans /opt/venv.
+env/
+venv/
+.venv/
+ENV/
+
+# Caches Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+
+# Tests, couverture et qualité de code : inutiles pour exécuter le serveur.
+# La CI les installe et les lance séparément (requirements/dev.txt).
+conftest.py
+tests/
+test/
+**/tests/
+**/test_*.py
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+coverage/
+reports/
+
+# Secrets : jamais dans une image. .env.example est réinjecté si besoin.
+.env
+.env.*
+!.env.example
+
+# Fichiers générés par Django et par les outils locaux
+staticfiles/
+media/
+db.sqlite3
+*.sqlite3
+*.log
+
+# Éditeurs et système
+.git
+.gitignore
+.github
+.vscode
+.idea
+.pre-commit-config.yaml
+.kilo
+Thumbs.db
+.DS_Store
+
+# Documentation
+README.md
+docs/
+*.md
+
+# Fichiers de syntaxe des éditeurs
+*.swp
+
+# Le Dockerfile et le .dockerignore eux-mêmes ne sont pas nécessaires à
+# l'exécution de l'image.
+Dockerfile
+.dockerignore
+
+# ATTENTION : ne PAS exclure les fichiers suivants, sans quoi l'image démarre
+# en erreur :
+#   manage.py, config/, apps/, conftest.py (exclu : tests uniquement),
+#   requirements/ (installation), entrypoint.sh (démarrage)

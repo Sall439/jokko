@@ -83,7 +83,11 @@ class PractitionerListSerializer(serializers.ModelSerializer[Practitioner]):
     cabinet_nom = serializers.CharField(
         source="cabinet.nom", read_only=True, default=None
     )
-    specialites: serializers.SlugRelatedField[Any] = serializers.SlugRelatedField(
+    # Pas de « [Any] » ici : les generics PEP 585 sur les champs de relation DRF
+    # exigent djangorestframework >= 3.15, alors que requirements/base.txt épingle
+    # la 3.14.0. Les autres annotations (ModelSerializer[...], Serializer[...])
+    # fonctionnent car elles héritent de Generic.
+    specialites = serializers.SlugRelatedField(
         many=True, read_only=True, slug_field="nom"
     )
 
