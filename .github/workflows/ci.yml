@@ -1,0 +1,40 @@
+name: CI
+
+# Phase 7 : la même vérification que celle attendue avant toute livraison.
+# `npm run check` enchaîne typecheck, lint, format et tests.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, types et tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Vérifier la cohérence des versions Expo
+        run: npx expo install --check
+
+      - name: Typecheck, lint, format et tests
+        run: npm run check

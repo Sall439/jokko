@@ -31,7 +31,10 @@ yarn-error.*
 *.pem
 
 # local env files
+# .env est ignoré (secrets locaux), .env.example est versionné.
+.env
 .env*.local
+!.env.example
 
 # typescript
 *.tsbuildinfo
